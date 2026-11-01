@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>كاشف الاحتيال المالي</title>
+<style>
+  body{font-family:Tahoma,Arial,sans-serif;background:#f4f6f9;margin:0;color:#1d2433}
+  header{background:#12263f;color:#fff;padding:18px 24px;font-size:20px}
+  main{max-width:1000px;margin:24px auto;padding:0 16px}
+  .card{background:#fff;border-radius:10px;padding:20px;margin-bottom:20px;box-shadow:0 1px 4px #0001}
+  button{background:#1a6ed8;color:#fff;border:0;padding:10px 20px;border-radius:6px;cursor:pointer;font-size:15px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+  th,td{padding:8px;border-bottom:1px solid #e3e7ee;text-align:right}
+  .wrap{overflow-x:auto}
+  .high{color:#c62828;font-weight:bold}.mid{color:#e08a00;font-weight:bold}.low{color:#2e7d32}
+  .note{background:#fff4e0;padding:10px;border-radius:6px;margin-bottom:10px}
+</style>
+</head>
+<body>
+<header>🔍 كاشف الاحتيال المالي</header>
+<main>
+  <div class="card">
+    <h3>ارفع ملف المعاملات (Excel / CSV / PDF)</h3>
+    <p>يجب أن يحتوي الملف على عمود للمبلغ، ويفضل: التاريخ، المورد، رقم الفاتورة.</p>
+    <input type="file" id="f" accept=".xlsx,.xls,.csv,.pdf">
+    <button onclick="up()">تحليل</button>
+    <span id="msg"></span>
+  </div>
+  <div class="card" id="res" style="display:none"></div>
+  <div class="card"><h3>التقارير السابقة</h3><div class="wrap"><table id="hist"></table></div></div>
+</main>
+<script>
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+async function up(){
+  const file = document.getElementById('f').files[0];
+  const msg = document.getElementById('msg');
+  if(!file){ msg.textContent = 'اختر ملفا أولا'; return; }
+  msg.textContent = '⏳ جاري التحليل...';
+  const fd = new FormData(); fd.append('file', file);
+  const r = await fetch('/upload', {method:'POST', body:fd});
+  const j = await r.json();
+  if(!r.ok){ msg.textContent = '❌ ' + (j.detail || 'خطأ'); return; }
+  msg.textContent = '✅ تم';
+  show(j.report_id); history_();
+}
+
+async function show(id){
+  const r = await (await fetch('/reports/' + id)).json();
+  const box = document.getElementById('res'); box.style.display = 'block';
+  box.innerHTML = `<h3>${esc(r.filename)} — ${r.rows} صف، المشبوه: ${r.flagged}</h3>` +
+    (r.note ? `<div class="note">⚠️ ${esc(r.note)}</div>` : '') +
+    `<div class="wrap"><table><tr><th>#</th><th>التاريخ</th><th>المورد</th><th>الفاتورة</th><th>المبلغ</th><th>الخطورة</th><th>الأسباب</th></tr>` +
+    r.items.map(i => `<tr><td>${i.row}</td><td>${esc(i.date)}</td><td>${esc(i.vendor)}</td><td>${esc(i.invoice)}</td>
+      <td>${i.amount.toLocaleString()}</td>
+      <td class="${i.score>=60?'high':i.score>=40?'mid':'low'}">${i.score}</td><td>${esc(i.reasons)}</td></tr>`).join('') +
+    `</table></div>`;
+}
+
+async function history_(){
+  const r = await (await fetch('/reports')).json();
+  document.getElementById('hist').innerHTML =
+    '<tr><th>الملف</th><th>التاريخ</th><th>الصفوف</th><th>المشبوه</th><th></th></tr>' +
+    r.map(x => `<tr><td>${esc(x.filename)}</td><td>${esc(x.created.slice(0,16).replace('T',' '))}</td><td>${x.rows}</td><td>${x.flagged}</td>
+    <td><a href="#" onclick="show(${x.id});return false">عرض</a></td></tr>`).join('');
+}
+history_();
+</script>
+</body>
+</html>

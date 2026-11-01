@@ -1,0 +1,12 @@
+fastapi
+uvicorn[standard]
+python-multipart
+sqlalchemy
+pandas
+numpy
+scipy
+scikit-learn
+openpyxl
+xlrd
+pdfplumber
+psycopg2-binary
